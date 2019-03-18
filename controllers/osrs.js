@@ -7,6 +7,7 @@ const maxId = 50
 const oneMinute = 60000
 
 let ids = []
+let data = {}
 let fetching = false
 let lastFetch = new Date() - oneMinute*1.25
 let idCount = 0
@@ -16,7 +17,8 @@ var osrs = {
     lastFetch: function() { return lastFetch },
     fetching: function() { return fetching },
     ids: function() { return ids },
-    fetchIds: fetchIds
+    fetchIds: fetchIds,
+    fetchById: fetchById
 }
 
 function fetchIds() {
@@ -39,7 +41,9 @@ function fetchById(id) {
             if(res.statusCode == 200) {
                 console.log(id)
                 ids.push(id)
-                resolve(data)
+                console.log(body)
+                resolve(body)
+                // resolve()
             } else {
                 resolve(-1)
             }
