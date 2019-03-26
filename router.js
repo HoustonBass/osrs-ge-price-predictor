@@ -10,33 +10,28 @@ router.get('/ids', (req, res) => {
 
 router.get('/ids/:id', (req, res) => {
     var id = validId(req, res)
-    osrs.fetchById(id).then(data => {
-        if(data == -1) {
-            res.status(400).send({'error': 'Not valid item id'})
-        }
-        res.send(data)
-    })
+    var data = osrs.dataById(id)
+    res.status(data.status).send(data.body)
 })
 
 router.get('/ids/:id/price', (req, res) => {
     var id = validId(req, res)
-    osrs.fetchById(id).then(data => {
-        if(data == -1) {
-            res.status(400).send({'error': 'Not valid item id'})
-        }
-        res.send(data.item.current.price)
-    })
+    var data = osrs.dataById(id)
+    if(data.status == 200) {
+        res.send(data.body.current)
+    } else {
+        res.status(data.status).send(data.body)
+    }
 })
 
-router.get('/ids/fetch', (req, res) => {
-    res.send(req.query)
-    // if(!osrs.fetching()) {
-    //     osrs.fetchIds()
-    // }
-    // res.send({"fetching": osrs.fetching(), "lastFetch": osrs.lastFetch(), "ids": osrs.ids()})
+router.post('/ids/fetch', (req, res) => {
+    if(!osrs.fetching()) {
+        osrs.fetchIds()
+    }
+    res.send({"fetching": osrs.fetching(), "lastFetch": osrs.lastFetch(), "ids": osrs.ids()})
 })
 
-function validIf(req, res) {
+function validId(req, res) {
     var id = parseInt(req.params.id)
     if(isNaN(id)) {
         res.status(400).send({'error':'Not valid integer format'})

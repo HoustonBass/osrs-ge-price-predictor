@@ -1,13 +1,16 @@
-
-var request = require('request')
+const Response = require('../models/response')
+const request = require('request')
+const syncRequest = require('sync-request')
 
 const baseUrl = 'http://services.runescape.com/m=itemdb_oldschool'
-const idRequest = '/api/catalogue/detail.json?item=itemId'
-const maxId = 50
+const idRequestUrl = '/api/catalogue/detail.json?item=ITEM_ID'
+const maxId = 10
 const oneMinute = 60000
+const waitMultiplier = 1
 
+let sendingIds;
 let ids = []
-let data = {}
+let itemData = {}
 let fetching = false
 let lastFetch = new Date() - oneMinute*1.25
 let idCount = 0
@@ -18,7 +21,11 @@ var osrs = {
     fetching: function() { return fetching },
     ids: function() { return ids },
     fetchIds: fetchIds,
-    fetchById: fetchById
+    dataById: dataById
+}
+
+function idRequest(id) {
+    return idRequestUrl.replace(/ITEM_ID/g, id);
 }
 
 function fetchIds() {
@@ -27,29 +34,60 @@ function fetchIds() {
     }
     lastFetch = new Date()
     fetching = true
-    sendingIDs = Array.from(Array(maxId),(x,i)=>i+1)
-    return Promise.all(sendingIDs.map(fetchById)).then((data) => {
+    sendingIds = Array.from(Array(maxId),(x,i)=>i+1)
+    fetchIdsLoop();
+}
+
+function fetchIdsLoop() {
+    if(sendingIds.length == 0) {
         fetching = false
-        ids = data.filter(f => f != -1)
-        console.log(`Fetched ids: ${ids}`)
+        return
+    }
+    var id = sendingIds.pop()
+    console.log(`calling ${id}`);
+    fetchIdCallback(id, checkAndContinue);
+}
+
+function checkAndContinue(id, err, res, body) {
+    if(res.statusCode == 200) {
+        if(body == null) {
+            sendingIds.push(id)
+        } else {
+            itemData[id] = body.item
+            console.log(body.item.name)
+        }
+    }
+    fetchIdsLoop(sendingIds)
+}
+
+function fetchIdCallback(id, callback) {
+    request(baseUrl + idRequest(id), {json: true}, (err, res, body) => {
+        callback(id, err, res, body);
     })
 }
 
-function fetchById(id) {
-    return new Promise((resolve, reject) => {
-        request(baseUrl + idRequest.replace(/itemId/g, id), { json: true }, (err, res, body) => {
-            if(res.statusCode == 200) {
-                console.log(id)
-                ids.push(id)
-                console.log(body)
-                resolve(body)
-                // resolve()
+function fetchIdSync(id) {
+    var res = syncRequest('GET', baseUrl + idRequest(id));
+    return new Response(res.statusCode, JSON.parse(res.getBody('utf8')));
+}
+
+function dataById(id) {
+    var data = itemData[id]
+    if(data == undefined) {
+        var res = fetchIdSync(id)
+        if(res.status == 200) {
+            if(res.body == undefined) {
+                return new Response(500, {error: 'Could not reach server right now, try again in 30 seconds'});
             } else {
-                resolve(-1)
+                itemData[id] = res.body.item
+                return new Response(200, res.body.item)
             }
-        });
-    })
+        } else {
+            return new Response(400, {error: 'Not valid item id'})
+        }
+    } else {
+        return new Response(200, data)
+    }
 }
-
 
 module.exports = osrs
