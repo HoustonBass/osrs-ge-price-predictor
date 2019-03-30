@@ -4,6 +4,11 @@ const osrs = require('./controllers/osrs')
 
 osrs.fetchIds()
 
+router.get('/items', (req, res) => {
+    // req.query.name
+    // res.status(200).send(osrs.)
+})
+
 router.get('/ids', (req, res) => {
     res.send({'ids':osrs.ids()})
 })
