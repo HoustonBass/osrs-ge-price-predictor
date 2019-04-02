@@ -1,8 +1,11 @@
-const express    = require('express');        // call express
-const router = express.Router();
-const osrs = require('./controllers/osrs')
+const express    = require('express'),
+    router = express.Router(),
+    osrs = require('./controllers/osrs'),
+    Error = require('./models/Error'),
+    buddy = require('./controllers/buddy')
 
-osrs.fetchIds()
+buddy.getBulkData()
+osrs.fetchIds(buddy.ids())
 
 router.get('/items', (req, res) => {
     // req.query.name
@@ -10,13 +13,33 @@ router.get('/items', (req, res) => {
 })
 
 router.get('/ids', (req, res) => {
-    res.send({'ids':osrs.ids()})
+    var bIds;
+    if((bIds = buddy.ids()) != undefined) {
+        return res.send({'size': bIds.length, 'ids': bIds})
+    }
+    var oIds;
+    if(oIds = osrs.ids()) {
+        return res.send({'size': oIds.length, 'ids':oIds})
+    }
+    return res.json(new Error("NO_IDS", "Could not get a list of ids :/"))
 })
 
 router.get('/ids/:id', (req, res) => {
     var id = validId(req, res)
-    var data = osrs.dataById(id)
-    res.status(data.status).send(data.body)
+    if(id == undefined) {
+        return
+    }
+
+    var idData = buddy.dataById(id)
+    if(idData != undefined) {
+        return res.status(200).send(idData)
+    }
+
+    var oData = osrs.dataById(id)
+    if(oData != undefined) {
+        return res.status(200).send(oData.body)
+    }
+    res.status(404).send(new Error("ID_NOT_FOUND", `${id} not found`))
 })
 
 router.get('/ids/:id/price', (req, res) => {

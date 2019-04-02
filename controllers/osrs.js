@@ -4,61 +4,60 @@ const syncRequest = require('sync-request')
 
 const baseUrl = 'http://services.runescape.com/m=itemdb_oldschool'
 const idRequestUrl = '/api/catalogue/detail.json?item=ITEM_ID'
-const maxId = 15000
 const oneMinute = 60000
-const waitMultiplier = 1
 
+let wait = 1
 let sendingIds;
 let ids = []
 let itemData = {}
 let fetching = false
 let lastFetch = new Date() - oneMinute * 1.25
-let idCount = 0
 
 
-var osrs = {
+let osrs = {
     lastFetch: function() { return lastFetch },
     fetching: function() { return fetching },
     ids: function() { return ids },
     fetchIds: fetchIds,
-    dataById: dataById
+    dataById: (id) => { return itemData[id] }
 }
 
 function idRequest(id) {
     return idRequestUrl.replace(/ITEM_ID/g, id);
 }
 
-function fetchIds() {
+function fetchIds(ids) {
+    this.ids = ids
     if(lastFetch > new Date() - oneMinute) {
         return;
     }
     lastFetch = new Date()
     fetching = true
-    sendingIds = Array.from(Array(maxId),(x,i)=>i+1)
+    sendingIds = ids
     fetchIdsLoop();
 }
 
 function fetchIdsLoop() {
     if(sendingIds.length == 0) {
         fetching = false
+        console.log(`OSRS GE: Finished loading ${ids.length} items`)
         return
     }
     var id = sendingIds.pop()
-    if(id%100 == 0) { console.log(`Fetching ${id}`)}
-    fetchIdCallback(id);
-}
-
-function fetchIdCallback(id, callback) {
     request(baseUrl + idRequest(id), {json: true}, (err, res, body) => {
         if(res.statusCode == 200) {
             if(body == null) {
+                wait*=1.5
                 sendingIds.push(id)
             } else {
+                wait *= 0.85
                 ids.push(id)
                 itemData[id] = body.item
             }
         }
-        fetchIdsLoop(sendingIds)
+        setTimeout(() => {
+            fetchIdsLoop()
+        }, wait*100);
     })
 }
 
@@ -72,15 +71,6 @@ function fetchIdSync(id) {
         }
     } else {
         return new Response(res.statusCode, {error: 'Not valid item id'});
-    }
-}
-
-function dataById(id) {
-    var data = itemData[id]
-    if(data == undefined) {
-        return fetchIdSync(id)
-    } else {
-        return new Response(200, data)
     }
 }
 
